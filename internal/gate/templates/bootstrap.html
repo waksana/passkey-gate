@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Register passkey</title>
+  <link rel="stylesheet" href="/_gate/static/gate.css">
+  <script src="/_gate/static/gate.js" defer></script>
+</head>
+<body>
+  <main id="gate" class="panel" data-page="bootstrap" data-authorized="{{.Authorized}}">
+    <h1>Register passkey</h1>
+    <label for="label">Passkey name</label>
+    <input id="label" name="label" maxlength="80" value="Primary passkey" autocomplete="off">
+    <button id="register" type="button" disabled>Add passkey</button>
+    <p id="status" role="status">Validating bootstrap link…</p>
+  </main>
+</body>
+</html>

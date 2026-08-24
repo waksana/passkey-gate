@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{.CSRF}}">
+  <title>Passkeys</title>
+  <link rel="stylesheet" href="/_gate/static/gate.css">
+  <script src="/_gate/static/gate.js" defer></script>
+</head>
+<body>
+  <main id="gate" class="panel wide" data-page="manage" data-fresh-until="{{.FreshUntil}}">
+    <header>
+      <h1>Passkeys</h1>
+      <button id="logout" class="quiet" type="button">Log out</button>
+    </header>
+
+    <section>
+      <ul class="credentials">
+      {{range .Credentials}}
+        <li data-credential-id="{{.ID}}">
+          <div>
+            <strong class="credential-label">{{.Label}}</strong>
+            <small>Added {{.CreatedAt.Format "2006-01-02 15:04 UTC"}}{{if .LastUsedAt}} · Used {{.LastUsedAt.Format "2006-01-02 15:04 UTC"}}{{end}}</small>
+          </div>
+          <div class="actions">
+            <button class="rename quiet" type="button">Rename</button>
+            <button class="delete danger" type="button">Delete</button>
+          </div>
+        </li>
+      {{end}}
+      </ul>
+    </section>
+
+    <section class="add">
+      <label for="label">New passkey name</label>
+      <div class="row">
+        <input id="label" maxlength="80" placeholder="Security key" autocomplete="off">
+        <button id="register" type="button">Add passkey</button>
+      </div>
+    </section>
+
+    <footer>
+      <button id="revoke" class="danger" type="button">Revoke all sessions</button>
+      <p id="status" role="status"></p>
+    </footer>
+  </main>
+</body>
+</html>

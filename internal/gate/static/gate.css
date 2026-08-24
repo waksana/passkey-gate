@@ -1,0 +1,169 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  --page: #f6f7f5;
+  --text: #26302b;
+  --muted: #78817c;
+  --accent: #647a6e;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--page);
+  color: var(--text);
+}
+
+main {
+  width: min(24rem, calc(100vw - 2rem));
+}
+
+.panel {
+  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  border-radius: .75rem;
+}
+
+.login-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: .55rem;
+  width: auto;
+  color: var(--muted);
+  font-size: .9rem;
+  letter-spacing: .01em;
+}
+
+.login-line p {
+  min-height: 0;
+  margin: 0;
+}
+
+.login-line #retry {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-underline-offset: .2em;
+}
+
+.wide {
+  width: min(44rem, calc(100vw - 3rem));
+}
+
+header,
+.row,
+.actions,
+li {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+header,
+li {
+  justify-content: space-between;
+}
+
+h1 {
+  margin: 0 0 1.25rem;
+  font-size: 1.35rem;
+}
+
+header h1 {
+  margin: 0;
+}
+
+section,
+footer {
+  margin-top: 1.5rem;
+}
+
+label,
+small {
+  display: block;
+}
+
+small {
+  margin-top: .2rem;
+  opacity: .65;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  margin: .4rem 0 .8rem;
+  padding: .65rem;
+  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  border-radius: .4rem;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.row input {
+  margin: 0;
+}
+
+button {
+  padding: .6rem .8rem;
+  border: 0;
+  border-radius: .4rem;
+  background: Highlight;
+  color: HighlightText;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:disabled {
+  opacity: .5;
+  cursor: wait;
+}
+
+button.quiet {
+  background: transparent;
+  color: CanvasText;
+  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+}
+
+button.danger {
+  background: #a52222;
+  color: white;
+}
+
+.credentials {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.credentials li {
+  padding: .9rem 0;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+}
+
+#status {
+  min-height: 1.3em;
+}
+
+@media (max-width: 36rem) {
+  li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #171b19;
+    --text: #e4e9e6;
+    --muted: #9ba69f;
+    --accent: #a9bdb1;
+  }
+}
