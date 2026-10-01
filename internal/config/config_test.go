@@ -1,11 +1,66 @@
 package config
 
 import (
+	"encoding/base64"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestAndroidOriginsAreOptInHostBoundAndLoginOnly(t *testing.T) {
+	cfg := validConfig(t)
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.LoginOriginsForHost("app.example.com"); len(got) != 1 {
+		t.Fatal(got)
+	}
+	origin := "android:apk-key-hash:" + base64.RawURLEncoding.EncodeToString(make([]byte, 32))
+	cfg.AndroidOrigins = map[string][]string{"app.example.com": {origin}}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.LoginOriginsForHost("app.example.com"); len(got) != 2 || got[1] != origin {
+		t.Fatal(got)
+	}
+	if got := cfg.LoginOriginsForHost("auth.example.com"); len(got) != 1 {
+		t.Fatal(got)
+	}
+	if got := cfg.OriginsForHost("app.example.com"); len(got) != 1 {
+		t.Fatal(got)
+	}
+	copy := cfg.LoginOriginsForHost("app.example.com")
+	copy[0] = "changed"
+	if cfg.OriginsForHost("app.example.com")[0] != "https://app.example.com" {
+		t.Fatal("mutated config")
+	}
+}
+
+func TestAndroidOriginsRejectMalformedConfiguration(t *testing.T) {
+	good := "android:apk-key-hash:" + base64.RawURLEncoding.EncodeToString(make([]byte, 32))
+	for name, origins := range map[string]map[string][]string{
+		"unknown host":      {"other.example.com": {good}},
+		"wildcard":          {"*.example.com": {good}},
+		"noncanonical host": {"APP.example.com": {good}},
+		"empty":             {"app.example.com": {}},
+		"duplicate":         {"app.example.com": {good, good}},
+		"web":               {"app.example.com": {"https://app.example.com"}},
+		"padded":            {"app.example.com": {good + "="}},
+		"newline":           {"app.example.com": {good + "\n"}},
+		"short":             {"app.example.com": {"android:apk-key-hash:AA"}},
+		"hex":               {"app.example.com": {"android:apk-key-hash:" + strings.Repeat("a", 64)}},
+		"noncanonical bits": {"app.example.com": {good[:len(good)-1] + "B"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := validConfig(t)
+			cfg.AndroidOrigins = origins
+			if err := cfg.Validate(); err == nil {
+				t.Fatal("accepted unsafe Android origin configuration")
+			}
+		})
+	}
+}
 
 func validConfig(t *testing.T) Config {
 	t.Helper()
