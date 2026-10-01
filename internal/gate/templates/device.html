@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{.CSRF}}">
+  <title>Authorize device</title>
+  <link rel="stylesheet" href="/_gate/static/gate.css">
+  <script src="/_gate/static/gate.js" defer></script>
+</head>
+<body>
+  <main id="gate" class="panel" data-page="device" data-user-code="{{.Code}}">
+    <h1>Authorize device</h1>
+    {{if .Host}}
+    <p>Only approve a sign-in you started on your own device.</p>
+    <p>Resource: <strong>{{.Host}}</strong></p>
+    <p>Client: <strong>cockpit-dashboard</strong>. Scope: <strong>host-access</strong> (the entire site, not one session).</p>
+    <p>Code: <strong>{{.Code}}</strong></p>
+    <label for="confirm-code">Check the code on your device and type it here</label>
+    <input id="confirm-code" maxlength="9" autocomplete="off" spellcheck="false">
+    <button id="device-approve" type="button">Approve with Passkey</button>
+    <button id="device-deny" class="danger" type="button">Deny</button>
+    <p>Access lasts 15 minutes; device authorization lasts at most 30 days. Revoke it in Passkey management.</p>
+    {{else}}
+    <form method="get" action="/_gate/device">
+      <label for="user-code">Code shown on your device</label>
+      <input id="user-code" name="user_code" maxlength="9" required autocomplete="off" spellcheck="false">
+      <button type="submit">Review device</button>
+    </form>
+    {{end}}
+    <p id="status" role="status"></p>
+    <a href="/_gate/manage">Passkey and device management</a>
+  </main>
+</body>
+</html>

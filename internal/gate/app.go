@@ -110,6 +110,13 @@ func New(cfg config.Config, database *store.Store, logger *slog.Logger) (*App, e
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	setSecurityHeaders(w)
+	if len(r.Header.Values("Authorization")) != 0 && r.URL.Path != "/_gate/check" &&
+		r.URL.Path != "/_gate/oauth/device_authorization" && r.URL.Path != "/_gate/oauth/token" &&
+		r.URL.Path != "/_gate/oauth/revoke" {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="passkey-gate", error="invalid_token"`)
+		http.Error(w, "device credentials cannot access human authentication or management", http.StatusUnauthorized)
+		return
+	}
 	a.handler.ServeHTTP(w, r)
 }
 
@@ -134,6 +141,14 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /_gate/credentials/{id}/delete", a.deleteCredential)
 	mux.HandleFunc("POST /_gate/sessions/revoke", a.revokeSessions)
 	mux.HandleFunc("POST /_gate/logout", a.logout)
+	mux.HandleFunc("POST /_gate/oauth/device_authorization", a.deviceAuthorization)
+	mux.HandleFunc("POST /_gate/oauth/token", a.deviceToken)
+	mux.HandleFunc("POST /_gate/oauth/revoke", a.deviceRevoke)
+	mux.HandleFunc("GET /_gate/device", a.devicePage)
+	mux.HandleFunc("POST /_gate/device/options", a.deviceOptions)
+	mux.HandleFunc("POST /_gate/device/finish", a.deviceFinish)
+	mux.HandleFunc("POST /_gate/device/deny", a.deviceDeny)
+	mux.HandleFunc("POST /_gate/devices/{id}/revoke", a.revokeManagedDevice)
 	return mux
 }
 
@@ -224,6 +239,9 @@ func (a *App) managementSession(w http.ResponseWriter, r *http.Request, fresh bo
 func (a *App) check(w http.ResponseWriter, r *http.Request) {
 	host, ok := a.requestHost(w, r)
 	if !ok {
+		return
+	}
+	if a.checkBearer(w, r, host) {
 		return
 	}
 	if _, err := a.currentSession(r, host); err != nil {
@@ -458,8 +476,14 @@ func (a *App) managePage(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, "list credentials", err)
 		return
 	}
+	devices, err := a.store.ListDevices(r.Context())
+	if err != nil {
+		a.serverError(w, "list devices", err)
+		return
+	}
 	a.render(w, "manage.html", map[string]any{
 		"Credentials": credentials,
+		"Devices":     devices,
 		"CSRF":        a.csrfToken(session.TokenHash),
 		"FreshUntil":  session.AuthenticatedAt.Add(a.cfg.FreshAuthDuration.Duration).UnixMilli(),
 	})

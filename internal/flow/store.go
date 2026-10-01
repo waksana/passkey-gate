@@ -25,6 +25,7 @@ const (
 	Fresh        Kind = "fresh"
 	Registration Kind = "registration"
 	Bootstrap    Kind = "bootstrap"
+	Device       Kind = "device"
 )
 
 type Flow struct {
@@ -32,6 +33,7 @@ type Flow struct {
 	Host          string
 	ReturnPath    string
 	Label         string
+	UserCode      string
 	Session       webauthn.SessionData
 	SessionHash   [32]byte
 	BootstrapHash [32]byte
