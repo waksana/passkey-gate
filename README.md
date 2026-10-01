@@ -69,6 +69,8 @@ Configuration requirements:
   non-default ports.
 - Hosts must be exact DNS names within the RP ID.
 - Every allowed host must have a matching allowed origin.
+- Optional `android_origins` maps exact allowed hosts to native Android signing
+  origins. It is disabled when omitted. See [Android login](#android-login).
 - `management_origin` must exactly match one allowed origin.
 - The database path must be absolute. Its parent directory must be writable by
   the service account.
@@ -99,6 +101,83 @@ The process exposes:
 
 Keep the listener private. TLS must terminate at a trusted reverse proxy, and
 only configured hosts should be routed to Passkey Gate.
+
+## Android login
+
+Native Android login is opt-in, separately from the HTTPS origin allowlist:
+
+```yaml
+android_origins:
+  app.example.com:
+    - android:apk-key-hash:REPLACE_WITH_UNPADDED_BASE64URL_SHA256_CERT_DIGEST
+```
+
+Replace the placeholder with the **32-byte SHA-256 signing certificate digest**,
+encoded as unpadded base64url (43 characters), not the APK file hash, certificate
+bytes or colon-separated hex fingerprint. Empty lists, unknown/noncanonical
+hosts, duplicates and malformed digests are rejected. Never allow arbitrary
+Android origins or add them to `allowed_origins`.
+
+This expands only the login verifier for the selected host. Browser origins,
+registration, fresh management verification, required user verification, flow
+expiry/one-time consumption, CSRF checks and fixed-lifetime host-bound sessions
+retain their existing rules. Other hosts do not inherit the native origin.
+
+The native client can use the existing ceremony without a new pairing service:
+
+1. GET `https://app.example.com/_gate/login` to obtain the client-binding cookie.
+2. POST `{}` to `/_gate/auth/options`, retaining the flow cookie.
+3. Pass the returned `publicKey` object to Android Credential Manager.
+4. POST the returned assertion JSON to `/_gate/auth/finish` with the same cookies.
+5. Retain the secure, host-only `__Host-pg_session` cookie and its absolute expiry.
+
+An HTTP `Origin: https://app.example.com` header is not proof of native identity:
+the verifier checks the Android origin inside the **signed** `clientDataJSON`.
+The client must not replace that origin with a web origin. Authentication
+failures must not trigger automatic assertion retries.
+
+Before enabling a signing identity, explicitly authorize its package and signing
+certificate using Digital Asset Links on the **RP ID domain**. For RP ID
+`example.com`, serve `https://example.com/.well-known/assetlinks.json` publicly
+over trusted HTTPS, with HTTP 200 and `Content-Type: application/json`, without
+authentication or redirects:
+
+```json
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.waksana.cockpitdashboard",
+      "sha256_cert_fingerprints": ["REPLACE_WITH_COLON_SEPARATED_SHA256_CERT_FINGERPRINT"]
+    }
+  }
+]
+```
+
+Here the fingerprint is uppercase colon-separated hex of the same certificate
+digest. Preserve unrelated existing association entries. For example, add this
+exact location to the RP ID's TLS virtual host, outside the gate's protected
+catch-all (adapt the static file path):
+
+```nginx
+location = /.well-known/assetlinks.json {
+    auth_request off;
+    default_type application/json;
+    alias /srv/passkey-gate-public/assetlinks.json;
+}
+```
+
+Do not expose the config, database or service listener. Changing the APK signing
+key requires deliberately updating both associations and the selected host's
+origin allowlist. A debug signing key is for a controlled trial, not a production
+distribution identity. No deployment or configuration changes are performed by
+this repository's build.
+
+Android 9/API 28+ and a compatible credential provider are required. A TV's
+firmware label does not establish compatibility. Cross-device QR availability
+depends on the device/provider; the server cannot force it. Existing browser
+login remains available if the device cannot support native credentials.
 
 ## Reverse proxy contract
 

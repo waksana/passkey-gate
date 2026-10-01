@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -28,18 +29,19 @@ func (d *Duration) UnmarshalYAML(node *yaml.Node) error {
 }
 
 type Config struct {
-	Listen            string   `yaml:"listen"`
-	RPID              string   `yaml:"rp_id"`
-	RPName            string   `yaml:"rp_name"`
-	ManagementOrigin  string   `yaml:"management_origin"`
-	SessionDuration   Duration `yaml:"session_duration"`
-	ChallengeDuration Duration `yaml:"challenge_duration"`
-	FreshAuthDuration Duration `yaml:"fresh_auth_duration"`
-	BootstrapDuration Duration `yaml:"bootstrap_duration"`
-	AllowedOrigins    []string `yaml:"allowed_origins"`
-	AllowedHosts      []string `yaml:"allowed_hosts"`
-	Database          string   `yaml:"database"`
-	TestMode          bool     `yaml:"test_mode"`
+	Listen            string              `yaml:"listen"`
+	RPID              string              `yaml:"rp_id"`
+	RPName            string              `yaml:"rp_name"`
+	ManagementOrigin  string              `yaml:"management_origin"`
+	SessionDuration   Duration            `yaml:"session_duration"`
+	ChallengeDuration Duration            `yaml:"challenge_duration"`
+	FreshAuthDuration Duration            `yaml:"fresh_auth_duration"`
+	BootstrapDuration Duration            `yaml:"bootstrap_duration"`
+	AllowedOrigins    []string            `yaml:"allowed_origins"`
+	AllowedHosts      []string            `yaml:"allowed_hosts"`
+	AndroidOrigins    map[string][]string `yaml:"android_origins"`
+	Database          string              `yaml:"database"`
+	TestMode          bool                `yaml:"test_mode"`
 
 	managementHost string
 	originsByHost  map[string][]string
@@ -138,6 +140,29 @@ func (c *Config) Validate() error {
 	}
 	slices.Sort(c.AllowedOrigins)
 
+	for host, origins := range c.AndroidOrigins {
+		if !c.HostAllowed(host) {
+			return fmt.Errorf("android_origins host %q must exactly match an allowed host", host)
+		}
+		if len(origins) == 0 {
+			return fmt.Errorf("android_origins for %q must not be empty", host)
+		}
+		seen := make(map[string]struct{}, len(origins))
+		for _, origin := range origins {
+			const prefix = "android:apk-key-hash:"
+			digest := strings.TrimPrefix(origin, prefix)
+			raw, err := base64.RawURLEncoding.Strict().DecodeString(digest)
+			if !strings.HasPrefix(origin, prefix) || err != nil || len(raw) != 32 ||
+				base64.RawURLEncoding.EncodeToString(raw) != digest {
+				return fmt.Errorf("android origin for %q must be android:apk-key-hash: followed by a canonical unpadded base64url SHA-256 digest", host)
+			}
+			if _, exists := seen[origin]; exists {
+				return fmt.Errorf("duplicate android origin for %q", host)
+			}
+			seen[origin] = struct{}{}
+		}
+	}
+
 	managementURL, err := url.Parse(c.ManagementOrigin)
 	if err != nil {
 		return fmt.Errorf("management_origin: %w", err)
@@ -179,6 +204,10 @@ func (c Config) HostAllowed(host string) bool {
 
 func (c Config) OriginsForHost(host string) []string {
 	return slices.Clone(c.originsByHost[host])
+}
+
+func (c Config) LoginOriginsForHost(host string) []string {
+	return append(c.OriginsForHost(host), c.AndroidOrigins[host]...)
 }
 
 func (c Config) ManagementHost() string {

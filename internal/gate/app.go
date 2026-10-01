@@ -42,17 +42,18 @@ const (
 var assets embed.FS
 
 type App struct {
-	cfg          config.Config
-	store        *store.Store
-	flows        *flow.Store
-	webauthn     map[string]*webauthn.WebAuthn
-	templates    *template.Template
-	csrfKey      [32]byte
-	limiter      *limiter
-	credentialMu sync.Mutex
-	logger       *slog.Logger
-	handler      http.Handler
-	now          func() time.Time
+	cfg           config.Config
+	store         *store.Store
+	flows         *flow.Store
+	webauthn      map[string]*webauthn.WebAuthn
+	loginWebauthn map[string]*webauthn.WebAuthn
+	templates     *template.Template
+	csrfKey       [32]byte
+	limiter       *limiter
+	credentialMu  sync.Mutex
+	logger        *slog.Logger
+	handler       http.Handler
+	now           func() time.Time
 }
 
 func New(cfg config.Config, database *store.Store, logger *slog.Logger) (*App, error) {
@@ -64,21 +65,22 @@ func New(cfg config.Config, database *store.Store, logger *slog.Logger) (*App, e
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
 	app := &App{
-		cfg:       cfg,
-		store:     database,
-		flows:     flow.New(1024),
-		webauthn:  make(map[string]*webauthn.WebAuthn, len(cfg.AllowedHosts)),
-		templates: tmpl,
-		limiter:   newLimiter(),
-		logger:    logger,
-		now:       time.Now,
+		cfg:           cfg,
+		store:         database,
+		flows:         flow.New(1024),
+		webauthn:      make(map[string]*webauthn.WebAuthn, len(cfg.AllowedHosts)),
+		loginWebauthn: make(map[string]*webauthn.WebAuthn, len(cfg.AllowedHosts)),
+		templates:     tmpl,
+		limiter:       newLimiter(),
+		logger:        logger,
+		now:           time.Now,
 	}
 	if _, err := rand.Read(app.csrfKey[:]); err != nil {
 		return nil, fmt.Errorf("generate CSRF key: %w", err)
 	}
 
 	for _, host := range cfg.AllowedHosts {
-		instance, err := webauthn.New(&webauthn.Config{
+		options := webauthn.Config{
 			RPID:                  cfg.RPID,
 			RPDisplayName:         cfg.RPName,
 			RPOrigins:             cfg.OriginsForHost(host),
@@ -98,11 +100,20 @@ func New(cfg config.Config, database *store.Store, logger *slog.Logger) (*App, e
 					Timeout: cfg.ChallengeDuration.Duration,
 				},
 			},
-		})
+		}
+		instance, err := webauthn.New(&options)
 		if err != nil {
 			return nil, fmt.Errorf("configure WebAuthn for %s: %w", host, err)
 		}
 		app.webauthn[host] = instance
+		// Native origins are trusted only for login, never registration or fresh management verification.
+		loginOptions := options
+		loginOptions.RPOrigins = cfg.LoginOriginsForHost(host)
+		loginInstance, err := webauthn.New(&loginOptions)
+		if err != nil {
+			return nil, fmt.Errorf("configure login WebAuthn for %s: %w", host, err)
+		}
+		app.loginWebauthn[host] = loginInstance
 	}
 	app.handler = app.routes()
 	return app, nil
@@ -288,7 +299,7 @@ func (a *App) authOptions(w http.ResponseWriter, r *http.Request) {
 		a.jsonError(w, http.StatusServiceUnavailable, "no passkeys are registered")
 		return
 	}
-	options, session, err := a.webauthn[host].BeginDiscoverableLogin(
+	options, session, err := a.loginWebauthn[host].BeginDiscoverableLogin(
 		webauthn.WithUserVerification(protocol.VerificationRequired))
 	if err != nil {
 		a.serverError(w, "begin authentication", err)
@@ -334,7 +345,7 @@ func (a *App) authFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
-	_, credential, err := a.webauthn[host].FinishPasskeyLogin(discoverableOwner(owner), value.Session, r)
+	_, credential, err := a.loginWebauthn[host].FinishPasskeyLogin(discoverableOwner(owner), value.Session, r)
 	if err != nil {
 		a.logger.Warn("passkey authentication rejected", "host", host, "error", err)
 		a.jsonError(w, http.StatusUnauthorized, "passkey verification failed")
