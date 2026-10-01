@@ -7,8 +7,9 @@ One set of discoverable passkeys is shared across explicitly allowed
 subdomains. Sessions are not shared: every protected host receives a separate,
 host-only cookie with a fixed lifetime.
 
-Passkey Gate is intentionally not an identity provider. It has no usernames,
-passwords, email, roles, groups, OAuth, OIDC, or application identity headers.
+Passkey Gate is intentionally not a general identity provider. It has no usernames,
+passwords, email, roles, groups, OIDC, or application identity headers. Its narrow
+OAuth device/refresh profile grants host-bound site access to approved devices.
 
 ## Features
 
@@ -22,6 +23,12 @@ passwords, email, roles, groups, OAuth, OIDC, or application identity headers.
 - Fresh passkey verification for sensitive credential changes
 - CSRF protection and strict security headers
 - SQLite storage and a single self-contained binary
+- RFC 8628 device authorization with explicit Passkey approval and code confirmation
+- Opaque device access tokens, rotating refresh families and RFC 7009 revocation
+
+The canonical [device authorization wire v1 and operating guide](docs/device-authorization.md)
+includes lifetimes, standard/error semantics, capacity limits, synthetic App
+fixtures and [Nginx device integration](deploy/nginx-device.conf).
 
 ## Build
 
@@ -185,6 +192,9 @@ shell access and a new bootstrap link are the only recovery mechanism.
 - Deleting a passkey revokes every active session
 
 Applications receive no user identity and should never receive Gate cookies.
+Device-enabled proxies must also strip Gate `Authorization` credentials before
+forwarding application requests. The browser-only proxy example above needs
+the device integration changes linked above before using bearer credentials.
 
 ## Release
 

@@ -195,7 +195,7 @@ function manage() {
 
   document.querySelectorAll(".delete").forEach(button => {
     button.addEventListener("click", () => manageAction(async () => {
-      if (!confirm("Delete this passkey and revoke every active session?")) return;
+      if (!confirm("Delete this passkey and revoke every active session and device?")) return;
       await ensureFresh();
       const item = button.closest("[data-credential-id]");
       const result = await request(`/_gate/credentials/${item.dataset.credentialId}/delete`);
@@ -204,7 +204,7 @@ function manage() {
   });
 
   document.getElementById("revoke").addEventListener("click", () => manageAction(async () => {
-    if (!confirm("Revoke every active session?")) return;
+    if (!confirm("Revoke every active session and device?")) return;
     const result = await request("/_gate/sessions/revoke");
     location.assign(result.redirect);
   }));
@@ -212,6 +212,42 @@ function manage() {
   document.getElementById("logout").addEventListener("click", () => manageAction(async () => {
     const result = await request("/_gate/logout");
     location.assign(result.redirect);
+  }));
+  document.querySelectorAll(".device-revoke").forEach(button => {
+    button.addEventListener("click", () => manageAction(async () => {
+      if (!confirm("Revoke this device's site access? Existing streams may remain connected.")) return;
+      await request(`/_gate/devices/${button.dataset.deviceId}/revoke`);
+      location.reload();
+    }));
+  });
+}
+
+function deviceApproval() {
+  const approve = document.getElementById("device-approve");
+  const deny = document.getElementById("device-deny");
+  if (!approve || !deny) return;
+  const code = root.dataset.userCode;
+  approve.addEventListener("click", () => manageAction(async () => {
+    approve.disabled = true;
+    deny.disabled = true;
+    try {
+      const confirmed = document.getElementById("confirm-code").value.trim();
+      await authenticate(
+        `/_gate/device/options?user_code=${encodeURIComponent(code)}&confirm_code=${encodeURIComponent(confirmed)}`,
+        "/_gate/device/finish",
+      );
+      message("Device approved. Return to your device.");
+    } catch (error) {
+      approve.disabled = false;
+      deny.disabled = false;
+      throw error;
+    }
+  }));
+  deny.addEventListener("click", () => manageAction(async () => {
+    await request(`/_gate/device/deny?user_code=${encodeURIComponent(code)}`);
+    approve.disabled = true;
+    deny.disabled = true;
+    message("Device denied.");
   }));
 }
 
@@ -223,4 +259,6 @@ if (root?.dataset.page === "login") {
   claimBootstrap();
 } else if (root?.dataset.page === "manage") {
   manage();
+} else if (root?.dataset.page === "device") {
+  deviceApproval();
 }

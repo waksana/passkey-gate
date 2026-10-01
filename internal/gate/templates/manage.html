@@ -40,8 +40,26 @@
       </div>
     </section>
 
+    <section>
+      <h2>Authorized devices</h2>
+      <p>Each authorization grants access to an entire site, not an individual session.</p>
+      <ul class="credentials">
+      {{range .Devices}}
+        <li>
+          <div>
+            <strong>{{.Host}}</strong>
+            <small>#{{.ID}} · Authorized {{.CreatedAt.Format "2006-01-02 15:04 UTC"}} · Expires {{.ExpiresAt.Format "2006-01-02 15:04 UTC"}}</small>
+          </div>
+          <button class="device-revoke danger" data-device-id="{{.ID}}" type="button">Revoke device</button>
+        </li>
+      {{else}}
+        <li>No authorized devices.</li>
+      {{end}}
+      </ul>
+      <a href="/_gate/device">Enter a device code</a>
+    </section>
     <footer>
-      <button id="revoke" class="danger" type="button">Revoke all sessions</button>
+      <button id="revoke" class="danger" type="button">Revoke all sessions and devices</button>
       <p id="status" role="status"></p>
     </footer>
   </main>

@@ -174,7 +174,7 @@ CREATE INDEX IF NOT EXISTS bootstrap_expiry_idx ON bootstrap_tokens(expires_at);
 		ownerID, s.now().Unix()); err != nil {
 		return fmt.Errorf("initialize owner: %w", err)
 	}
-	return nil
+	return s.initializeDevices(ctx)
 }
 
 func (s *Store) Close() error {
@@ -320,6 +320,9 @@ func (s *Store) DeleteCredential(ctx context.Context, id int64) error {
 	}
 	if _, err := tx.ExecContext(ctx, "DELETE FROM sessions"); err != nil {
 		return fmt.Errorf("revoke sessions after credential deletion: %w", err)
+	}
+	if err := revokeDevices(ctx, tx); err != nil {
+		return fmt.Errorf("revoke devices after credential deletion: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit deletion: %w", err)
@@ -485,8 +488,18 @@ WHERE token_hash = ? AND expires_at > ?`, now, hash[:], now)
 }
 
 func (s *Store) RevokeAllSessions(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions")
-	return err
+	tx, err := s.deviceTx(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "DELETE FROM sessions"); err != nil {
+		return err
+	}
+	if err := revokeDevices(ctx, tx); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) RevokeSession(ctx context.Context, hash [32]byte) error {

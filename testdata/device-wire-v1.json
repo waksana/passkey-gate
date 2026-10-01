@@ -1,0 +1,82 @@
+{
+  "wire_version": 1,
+  "synthetic_only": true,
+  "site_root": "https://app.example.com",
+  "client_id": "cockpit-dashboard",
+  "scope": "host-access",
+  "content_type": "application/x-www-form-urlencoded",
+  "device_authorization": {
+    "path": "/_gate/oauth/device_authorization",
+    "request": {"client_id": "cockpit-dashboard", "scope": "host-access"},
+    "status": 200,
+    "response": {
+      "device_code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "user_code": "ABCD-EFGH",
+      "verification_uri": "https://auth.example.com/_gate/device",
+      "verification_uri_complete": "https://auth.example.com/_gate/device?user_code=ABCD-EFGH",
+      "expires_in": 300,
+      "interval": 5
+    }
+  },
+  "token": {
+    "path": "/_gate/oauth/token",
+    "request": {
+      "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+      "device_code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "client_id": "cockpit-dashboard"
+    },
+    "status": 200,
+    "response": {
+      "access_token": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "token_type": "Bearer",
+      "expires_in": 900,
+      "refresh_token": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "scope": "host-access"
+    }
+  },
+  "refresh": {
+    "path": "/_gate/oauth/token",
+    "request": {
+      "grant_type": "refresh_token",
+      "refresh_token": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "client_id": "cockpit-dashboard"
+    },
+    "status": 200,
+    "response": {
+      "access_token": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+      "token_type": "Bearer",
+      "expires_in": 900,
+      "refresh_token": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
+      "scope": "host-access"
+    }
+  },
+  "revoke": {
+    "path": "/_gate/oauth/revoke",
+    "request": {
+      "client_id": "cockpit-dashboard",
+      "token": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
+      "token_type_hint": "refresh_token"
+    },
+    "status": 200,
+    "response_body": ""
+  },
+  "errors": [
+    {"status": 400, "response": {"error": "authorization_pending"}, "action": "wait_current_interval"},
+    {"status": 400, "response": {"error": "slow_down"}, "action": "increase_interval_by_5_permanently"},
+    {"status": 400, "response": {"error": "access_denied"}, "action": "stop"},
+    {"status": 400, "response": {"error": "expired_token"}, "action": "stop"},
+    {"status": 400, "response": {"error": "invalid_grant"}, "action": "stop"},
+    {"status": 400, "response": {"error": "invalid_client"}, "action": "stop"},
+    {"status": 400, "response": {"error": "invalid_scope"}, "action": "stop"},
+    {"status": 400, "response": {"error": "invalid_request"}, "action": "stop"},
+    {"status": 400, "response": {"error": "unsupported_grant_type"}, "action": "stop"},
+    {"status": 429, "response": {"error": "temporarily_unavailable"}, "retry_after": 60},
+    {"status": 503, "response": {"error": "temporarily_unavailable"}}
+  ],
+  "bearer_rejection": {
+    "status": 401,
+    "www_authenticate": "Bearer realm=\"passkey-gate\", error=\"invalid_token\"",
+    "cookie_fallback": false
+  },
+  "cache_headers": {"Cache-Control": "no-store", "Pragma": "no-cache"}
+}
